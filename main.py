@@ -1,4 +1,7 @@
-import load_data as ld
+import preprocess as ld
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+from tensorflow.keras.applications.vgg16 import VGG16
 
 
 def main():

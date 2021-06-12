@@ -1,95 +1,86 @@
-import string
+from pickle import load
 
 
-def load_captions(filename):
-    """
-    Load captions from file and create a per image caption dictionary
-    :param filename:
-    :return:
-    """
+def load_img_ids(filename):
     # read from the captions file
     file = open(filename, "r")
     text = file.read()
     file.close()
 
-    mapping = dict()
-
-    # process each line
-    # line is in form: image_name.jpg#no caption
+    img_ids = list()
     for line in text.split("\n"):
-        token = line.split("\t")
 
-        if len(line) < 2:
+        if len(line) < 1:
             continue
 
-        # first token: image id
-        # rest: image caption
-        img_id, img_capt = token[0], token[1:]
-        # extract image id: before the .jpg part
-        img_id = img_id.split('.')[0]
-        # convert caption list back to string
-        img_capt = ' '.join(img_capt)
+        img_id = line.split('.')[0]
+        img_ids.append(img_id)
 
-        # add all the captions od the same image to image_id key
-        if img_id not in mapping:
-            mapping[img_id] = list()
-        mapping[img_id].append(img_capt)
-
-    return mapping
+    return img_ids
 
 
-def clean_captions(captions):
+def load_img_features(img_features, train_ids, test_ids):
     """
-    Remove punctuation, hanging s and a, and tokens with numbers
-    from the captions
-    :param captions:
+    Load train and test features from a file
+    :param img_features:
+    :param train_ids:
+    :param test_ids:
     :return:
     """
-    # Prepare translation table for removing punctuation
-    table = str.maketrans('', '', string.punctuation)
-    for _, caption_list in captions.items():
-        for i in range(len(caption_list)):
-            caption = caption_list[i]
-            # Tokenize i.e. split on white spaces
-            caption = caption.split()
-            # Convert to lowercase
-            caption = [word.lower() for word in caption]
-            # Remove punctuation from each token
-            caption = [w.translate(table) for w in caption]
-            # Remove hanging 's' and 'a'
-            caption = [word for word in caption if len(word)>1]
-            # Remove tokens with numbers in them
-            caption = [word for word in caption if word.isalpha()]
-            # Store as string
-            caption_list[i] = ' '.join(caption)
+    features = load(open(img_features, "rb"))
+
+    train_features = {train_id: features[train_id] for train_id in train_ids}
+    test_features = {test_id: features[test_id] for test_id in test_ids}
+
+    return train_features, test_features
 
 
-def save_captions(captions_dict, to_file):
+def load_clean_captions(filename, dataset):
     """
-    Save the captions_dict to a file,
-    file: image_id caption_list per line
-    :param captions_dict:
-    :param to_file:
-    :return:
+    load captions from file and create entry for each imgId from dataset
     """
-    # convert captions dictionary to string of lines
-    lines = list()
-    for key, caption_list in captions_dict.items():
-        for caption in caption_list:
-            lines.append(key + ' ' + caption)
-    data = '\n'.join(lines)
-
-    # save captions string to a file
-    file = open(to_file, 'w')
-    file.write(data)
+    file = open(filename, 'r')
+    text = file.read()
     file.close()
 
+    captions = dict()
 
-def preprocess_captions(capt_filename="./Dataset/Flickr8k_text/Flickr8k.lemma.token.txt",
-                        clean_capt_to_file="./training_files/captions.txt"):
-    captions_dict = load_captions(capt_filename)
-    clean_captions(captions_dict)
-    save_captions(captions_dict, clean_capt_to_file)
+    for line in text.split('\n'):
+
+        tokens = line.split()
+        img_id, img_caption = tokens[0], tokens[1:]
+
+        if img_id in dataset:
+            if img_id not in captions:
+                captions[img_id] = list()
+
+            # add startseq at the begining and endseq at the end of each caption
+            caption = 'startseq ' + ' '.join(img_caption) + ' endseq'
+            captions[img_id].append(caption)
+
+    return captions
 
 
+def load_train_test(img_features_path, captions_path, train_ids_path, test_ids_path):
+    """
+    Load train image features and captions, load test image features and captions
+    :param img_features_path:
+    :param captions_path:
+    :param train_ids_path:
+    :param test_ids_path:
+    :return:
+    """
+    img_train_ids = load_img_ids(train_ids_path)
+    img_test_ids = load_img_ids(test_ids_path)
 
+    train_features, test_features = load_img_features(img_features_path, img_train_ids, img_test_ids)
+
+    train_captions = load_clean_captions(captions_path, img_train_ids)
+    test_captions = load_clean_captions(captions_path, img_test_ids)
+
+    print("Train images: ", len(train_features))
+    print("Train captions: ", len(train_captions))
+    print("Test images: ", len(test_features))
+    print("Test captions: ", len(test_captions))
+
+    return train_features, train_captions, test_features, test_captions
