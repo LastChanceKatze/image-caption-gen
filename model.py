@@ -13,7 +13,7 @@ from keras.callbacks import ModelCheckpoint
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-
+import params_dict
 
 def to_lines(captions):
     """
@@ -89,7 +89,7 @@ def data_generator(images, captions, tokenizer, max_length, batch_size, random_s
         in_img_batch, in_seq_batch, out_word_batch = list(), list(), list()
 
         # get current batch indexes
-        for i in range(count, min(len(img_ids), count+batch_size)):
+        for i in range(count, min(len(img_ids), count + batch_size)):
             # current image_id
             img_id = img_ids[i]
             # current image
@@ -113,25 +113,25 @@ def data_generator(images, captions, tokenizer, max_length, batch_size, random_s
 
 # define the captioning model
 def define_model(vocab_size, max_length):
-  image_input = Input(shape=(4096,))
-  image_model_1 = Dropout(0.5)(image_input)
-  image_model = Dense(256, activation='relu')(image_model_1)
+    image_input = Input(shape=(4096,))
+    image_model_1 = Dropout(0.5)(image_input)
+    image_model = Dense(256, activation='relu')(image_model_1)
 
-  caption_input = Input(shape=(max_length,))
-	# mask_zero: We zero pad inputs to the same length, the zero mask ignores those inputs. E.g. it is an efficiency.
-  caption_model_1 = Embedding(vocab_size, 256, mask_zero=True)(caption_input)
-  caption_model_2 = Dropout(0.5)(caption_model_1)
-  caption_model = LSTM(256)(caption_model_2)
+    caption_input = Input(shape=(max_length,))
+    # mask_zero: We zero pad inputs to the same length, the zero mask ignores those inputs. E.g. it is an efficiency.
+    caption_model_1 = Embedding(vocab_size, 256, mask_zero=True)(caption_input)
+    caption_model_2 = Dropout(0.5)(caption_model_1)
+    caption_model = LSTM(256)(caption_model_2)
 
-	# Merging the models and creating a softmax classifier
-  final_model_1 = concatenate([image_model, caption_model])
-  final_model_2 = Dense(256, activation='relu')(final_model_1)
-  final_model = Dense(vocab_size, activation='softmax')(final_model_2)
+    # Merging the models and creating a softmax classifier
+    final_model_1 = concatenate([image_model, caption_model])
+    final_model_2 = Dense(256, activation='relu')(final_model_1)
+    final_model = Dense(vocab_size, activation='softmax')(final_model_2)
 
-  model = Model(inputs=[image_input, caption_input], outputs=final_model)
-  model.compile(loss='categorical_crossentropy', optimizer='adam')
-  model.summary()
-  return model
+    model = Model(inputs=[image_input, caption_input], outputs=final_model)
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
+    model.summary()
+    return model
 
 
 def plot_history(history):
@@ -144,26 +144,29 @@ def plot_history(history):
 
 
 # TODO: should add necessary params in order to work
-def train_model(model, epochs, batch_size, plot_hist=True):
-    train_steps = len(train_captions) // batch_size
-    if len(train_captions) % batch_size != 0:
+def train_model(params):
+    train_steps = len(params['train_captions']) // params['batch_size']
+    if len(params['train_captions']) % params['batch_size'] != 0:
         train_steps = train_steps + 1
 
-    test_steps = len(test_captions) // batch_size
-    if len(test_captions) % batch_size != 0:
+    test_steps = len(params['test_captions']) // params['batch_size']
+    if len(params['test_captions']) % params['batch_size'] != 0:
         test_steps = test_steps + 1
 
-    filepath = drive_folder + "/model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5"
-    checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+    checkpoint = ModelCheckpoint(params['filepath'], monitor='val_loss', verbose=1, save_best_only=True, mode='min')
 
-    train_generator = data_generator(train_features, train_captions, tokenizer, max_length, batch_size, 10, vocab_size)
-    test_generator = data_generator(test_features, test_captions, tokenizer, max_length, batch_size, 10, vocab_size)
+    train_generator = data_generator(params['train_features'], params['train_captions'], params['tokenizer'],
+                                     params['max_length'], params['batch_size'], 10, params['vocab_size'])
+    test_generator = data_generator(params['test_features'], params['test_captions'], params['tokenizer'],
+                                    params['max_length'], params['batch_size'], 10, params['vocab_size'])
 
-    history = model.fit(train_generator, epochs=epochs, steps_per_epoch=train_steps,
+    model = params['model']
+    history = model.fit(train_generator, epochs=params['epochs'], steps_per_epoch=train_steps,
                         validation_data=test_generator, validation_steps=test_steps,
                         callbacks=[checkpoint], verbose=1)
 
-    if plot_hist:
+    if params['plot_hist']:
         plot_history(history.history)
 
     return model
+

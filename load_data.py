@@ -1,4 +1,5 @@
 from pickle import load
+import numpy as np
 
 
 def load_img_ids(filename):
@@ -84,3 +85,41 @@ def load_train_test(img_features_path, captions_path, train_ids_path, test_ids_p
     print("Test captions: ", len(test_captions))
 
     return train_features, train_captions, test_features, test_captions
+
+
+def glove_embedding_indices(glove_filepath):
+    """
+    Mapira world embedding fajl u dictionary, za svaku rec u fajlu
+     mapira njene relacije
+    :param glove_filepath:
+    :return:
+    """
+    embeddings_index = {}
+
+    glove = open(glove_filepath, 'r', encoding='utf-8').read()
+    for line in glove.split("\n"):
+        values = line.split(" ")
+        word = values[0]
+        indices = np.asarray(values[1:], dtype='float32')
+        embeddings_index[word] = indices
+
+    return embeddings_index
+
+
+def get_vocab_embedding_weights(embeddings_index, word_index, vocab_size):
+    """
+    Kreira embedding matricu za reci koje
+     se javljaju u vocab_index
+    :param embeddings_index:
+    :param word_index:
+    :param vocab_size: 
+    :return: 
+    """
+    emb_dim = 200
+    emb_matrix = np.zeros((vocab_size, emb_dim))
+    for word, i in word_index.items():
+        emb_vec = embeddings_index.get(word)
+        if emb_vec is not None:
+            emb_matrix[i] = emb_vec
+
+    return emb_matrix
